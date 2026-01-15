@@ -33,6 +33,10 @@ extern "C" {
         float scrollY;
     };
 
+    struct GenericClipboardItem {
+        void* bytes;
+        size_t size;
+    };
     /**
      * Creates the underlying window with strict wayland context required.
      * @return true if window creation was successful, otherwise false.
@@ -87,6 +91,11 @@ extern "C" {
      * Poll any pointer events, gives a copy to the first obj in the queue
      */
     bool cloak_poll_input_event(CloakEvent* event);
+
+    /**
+     * Set clipboard text contents, only supports text/plain for now.
+     */
+    void cloak_set_clipboard(GenericClipboardItem* data, const char** mime_types, int mime_count);
 
 #ifdef __cplusplus
 }

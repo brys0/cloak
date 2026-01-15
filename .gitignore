@@ -1,1 +1,26 @@
 buildDir/*
+.idea
+
+# Compose Folder
+compose/*.iml
+compose/.kotlin
+compose/.gradle
+compose/**/build/
+compose/xcuserdata
+!compose/src/**/build/
+compose/local.properties
+compose/.idea
+compose/.DS_Store
+compose/captures
+compose/.externalNativeBuild
+compose/.cxx
+compose/*.xcodeproj/*
+!compose/*.xcodeproj/project.pbxproj
+!compose/*.xcodeproj/xcshareddata/
+!compose/*.xcodeproj/project.xcworkspace/
+!compose/*.xcworkspace/contents.xcworkspacedata
+compose/**/xcshareddata/WorkspaceSettings.xcsettings
+compose/node_modules/
+
+compose/composeApp/*.log
+/.idea/

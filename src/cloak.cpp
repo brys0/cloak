@@ -1,5 +1,6 @@
 #include "cloak.h"
 
+
 #define CP_PRESS 1
 #define CP_RELEASE 2
 #define CP_MOVE 3
@@ -7,11 +8,16 @@
 #define CP_EXIT 5
 #define CP_SCROLL 6
 
-
+#include <cstring>
 #include <iostream>
 #include <GLFW/glfw3.h>
 #include "EGL/egl.h"
+#define GLFW_EXPOSE_NATIVE_WAYLAND
+#include <GLFW/glfw3native.h>
 #include <queue>
+#include <unistd.h>
+#include <wayland-client-protocol.h>
+#include <wayland-client.h>
 
 static std::queue<CloakEvent> event_queue;
 static GLFWwindow *window;
@@ -128,6 +134,138 @@ void cloak_set_window_char_callback(GLFWwindow* window, unsigned int codepoint) 
     });
 }
 
+void data_source_send(void *data, wl_data_source *,
+                      const char *mime_type, int32_t fd) {
+    if (fd < 0 || !data) {
+        close(fd);
+        return;
+    }
+    const auto* item = static_cast<GenericClipboardItem *>(data);
+
+    std::cout << "[Cloak-Clipboard] Sending " << item->size << " bytes for " << mime_type << std::endl;
+
+    if (const ssize_t n = write(fd, item->bytes, item->size); n < 0) {
+        perror("[Cloak-Clipboard] Write failed");
+    }
+
+    close(fd);
+}
+
+
+static void data_source_target(void *data,
+                                wl_data_source *,
+                               const char *mime_type) {
+    std::cerr << "Data source target MIME: "
+              << (mime_type ? mime_type : "(null)") << "\n";
+}
+
+
+
+// Global Wayland references (initialized during engine startup)
+wl_data_device_manager* data_device_manager = nullptr;
+wl_data_device* data_device = nullptr;
+uint32_t last_serial = 0;
+wl_seat* seat = nullptr;
+static wl_data_source* current_clipboard_source = nullptr;
+
+static void data_source_cancelled(void *data, wl_data_source *source) {
+    if (data) {
+        auto* item = static_cast<GenericClipboardItem *>(data);
+        std::cout << "[Cloak-Clipboard] FREEING: " << item->size
+               << " bytes at " << item->bytes
+               << ", struct at " << item << std::endl;
+        free(item->bytes);
+        free(item);
+    }
+    // Clear the global reference if this was the current source
+    if (source == current_clipboard_source) {
+        current_clipboard_source = nullptr;
+    }
+
+    std::cout << "[Cloak-Clipboard] Selection cancelled" << std::endl;
+    wl_data_source_destroy(source);
+}
+static const wl_data_source_listener source_listener = {
+    .target = data_source_target,
+    .send = data_source_send,
+    .cancelled = data_source_cancelled,
+    .dnd_drop_performed = nullptr,
+    .dnd_finished = nullptr
+};
+// Registry callback: Triggers for every global object in Wayland
+static void registry_handle_global(void* data, struct wl_registry* registry, uint32_t name,
+                                   const char* interface, uint32_t version) {
+    std::cout << "registry_handle_global " << data  << std::endl;
+    if (strcmp(interface, "wl_data_device_manager") == 0) {
+        data_device_manager = static_cast<wl_data_device_manager *>(wl_registry_bind(
+            registry, name, &wl_data_device_manager_interface, 3
+        ));
+    } else if (strcmp(interface, "wl_seat") == 0) {
+        seat = static_cast<wl_seat *>(wl_registry_bind(registry, name, &wl_seat_interface, 1));
+        // Once we have a seat, we can get the data device
+    }
+}
+
+static const wl_registry_listener registry_listener = {
+    .global = registry_handle_global,
+    .global_remove = [](void*, struct wl_registry*, uint32_t) {}
+};
+
+// When you bind the seat in registry_handle_global:
+static void register_pointer_listener() {
+    wl_pointer* pointer = wl_seat_get_pointer(seat);
+    static const struct wl_pointer_listener pointer_listener = {
+        .enter = [](void *data, struct wl_pointer *wl_pointer, uint32_t serial,
+                    struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y) {
+            last_serial = serial; // Capture the serial for clipboard use
+        },
+
+        .leave = [](void *data, struct wl_pointer *wl_pointer, uint32_t serial,
+                    struct wl_surface *surface) {
+            last_serial = serial;
+        },
+
+        .motion = [](void *data, struct wl_pointer *wl_pointer, uint32_t time,
+                     wl_fixed_t surface_x, wl_fixed_t surface_y) {
+        },
+
+        .button = [](void *data, struct wl_pointer *wl_pointer, uint32_t serial,
+                     uint32_t time, uint32_t button, uint32_t state) {
+            last_serial = serial;
+        },
+
+        .axis = [](void *data, struct wl_pointer *wl_pointer, uint32_t time,
+                   uint32_t axis, wl_fixed_t value) {
+            // No serial
+        },
+    };
+
+    wl_pointer_add_listener(pointer, &pointer_listener, nullptr);
+}
+void init_wayland_clipboard() {
+    wl_display* display = glfwGetWaylandDisplay();
+    if (!display) {
+        std::cerr << "Failed to get wayland display." << std::endl;
+        return;
+    }
+    wl_registry* registry = wl_display_get_registry(display);
+    if (!registry) {
+        std::cerr << "Failed to get wayland registry." << std::endl;
+        return;
+    }
+
+    wl_registry_add_listener(registry, &registry_listener, nullptr);
+    wl_display_roundtrip(display);
+
+    if (!(data_device_manager && seat)) {
+        std::cerr << "Failed to get wayland seat." << std::endl;
+        return;
+    }
+
+    data_device = wl_data_device_manager_get_data_device(data_device_manager, seat);
+    register_pointer_listener();
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -173,6 +311,8 @@ bool cloak_init(const char* title, int width, int height, const char* className)
     std::cout << "Client API: " << (client_api == GLFW_OPENGL_API ? "OpenGL" : "OpenGL ES") << std::endl;
     std::cout << "Context API: " << (creation_api == GLFW_EGL_CONTEXT_API ? "EGL" : "GLX") << std::endl;
 
+    init_wayland_clipboard();
+
     cloak_make_context_current();
     // glfwSetCursorEnterCallback()
     glfwSetCursorPosCallback(window, cloak_set_cursor_position_callback);
@@ -188,6 +328,7 @@ bool cloak_init(const char* title, int width, int height, const char* className)
 
     return true;
 }
+
 
 void cloak_show_window() {
     if (!window) {
@@ -266,6 +407,47 @@ bool cloak_poll_input_event(CloakEvent* out_event) {
     *out_event = event_queue.front();
     event_queue.pop();
     return true;
+}
+
+void cloak_set_clipboard(GenericClipboardItem* data, const char** mime_types, const int mime_count) {
+    if (!data_device_manager || !data_device || !data || !last_serial) return;
+
+    // Destroy previous source if it exists
+    if (current_clipboard_source) {
+        std::cout << "[Cloak-Clipboard] Destroying previous source" << std::endl;
+        wl_data_source_destroy(current_clipboard_source);
+        current_clipboard_source = nullptr;
+    }
+    std::cout << "[DEBUG] Received data pointer: " << data << std::endl;
+    std::cout << "[DEBUG] data->bytes: " << data->bytes << std::endl;
+    std::cout << "[DEBUG] data->size: " << data->size << std::endl;
+
+    // Freed @ data_source_canceled
+    auto* owned = static_cast<GenericClipboardItem *>(malloc(sizeof(GenericClipboardItem)));
+    owned->bytes = (unsigned char*)malloc(data->size);
+    memcpy(owned->bytes, data->bytes, data->size);
+    owned->size = data->size;
+    std::cout << "[DEBUG] Copied size: " << owned->size << std::endl;
+
+    current_clipboard_source = wl_data_device_manager_create_data_source(data_device_manager);
+    std::cout << "[Cloak-Clipboard] Setting clipboard with " << data->size << " bytes" << std::endl;
+
+    for (int i = 0; i < mime_count; i++) {
+        if (mime_types[i]) {
+            std::cout << "  - " << mime_types[i] << std::endl;
+            wl_data_source_offer(current_clipboard_source, mime_types[i]);
+        }
+    }
+
+    wl_data_source_add_listener(
+        current_clipboard_source,
+        &source_listener,
+        owned
+    );
+    std::cout << "Added listener " << std::endl;
+
+    wl_data_device_set_selection(data_device, current_clipboard_source, last_serial);
+    wl_display_flush(glfwGetWaylandDisplay());
 }
 
 void hello() {
