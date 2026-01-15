@@ -18,6 +18,8 @@ extern "C" {
         EVENT_CLICK = 2,
         EVENT_KEY = 3,
         EVENT_WINDOW_RESIZE = 4,
+
+        EVENT_CHAR = 5
     };
 
     struct CloakEvent {

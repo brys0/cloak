@@ -115,6 +115,19 @@ void cloak_set_window_key_callback(GLFWwindow* window, int key, int scancode, in
     });
 }
 
+void cloak_set_window_char_callback(GLFWwindow* window, unsigned int codepoint) {
+    event_queue.push({
+        .type = EVENT_CHAR,
+        .subtype = GLFW_KEY_DOWN,
+        .value = static_cast<int>(codepoint),
+        .mod = 0,
+        .x = 0.0,
+        .y = 0.0,
+        .scrollX = 0,
+        .scrollY = 0
+    });
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -168,7 +181,7 @@ bool cloak_init(const char* title, int width, int height, const char* className)
     glfwSetScrollCallback(window, cloak_set_scroll_callback);
     glfwSetWindowSizeCallback(window, cloak_set_window_resize_callback);
     glfwSetKeyCallback(window, cloak_set_window_key_callback);
-
+    glfwSetCharCallback(window, cloak_set_window_char_callback);
     cloak_set_swap_interval(0);
     cloak_swap_buffers();
 
