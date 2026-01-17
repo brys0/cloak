@@ -17,5 +17,5 @@
     </option>
   </component>
   <component name="MesonWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_23" project-jdk-name="25" project-jdk-type="JavaSDK" />
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_25" default="true" project-jdk-name="25" project-jdk-type="JavaSDK" />
 </project>

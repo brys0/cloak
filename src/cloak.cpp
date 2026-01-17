@@ -166,7 +166,6 @@ static void data_source_target(void *data,
 
 
 
-// Global Wayland references (initialized during engine startup)
 wl_data_device_manager* data_device_manager = nullptr;
 wl_data_device* data_device = nullptr;
 uint32_t last_serial = 0;
@@ -182,7 +181,7 @@ static void data_source_cancelled(void *data, wl_data_source *source) {
         free(item->bytes);
         free(item);
     }
-    // Clear the global reference if this was the current source
+
     if (source == current_clipboard_source) {
         current_clipboard_source = nullptr;
     }
@@ -197,17 +196,16 @@ static const wl_data_source_listener source_listener = {
     .dnd_drop_performed = nullptr,
     .dnd_finished = nullptr
 };
-// Registry callback: Triggers for every global object in Wayland
+
+
 static void registry_handle_global(void* data, struct wl_registry* registry, uint32_t name,
                                    const char* interface, uint32_t version) {
-    std::cout << "registry_handle_global " << data  << std::endl;
     if (strcmp(interface, "wl_data_device_manager") == 0) {
         data_device_manager = static_cast<wl_data_device_manager *>(wl_registry_bind(
             registry, name, &wl_data_device_manager_interface, 3
         ));
     } else if (strcmp(interface, "wl_seat") == 0) {
         seat = static_cast<wl_seat *>(wl_registry_bind(registry, name, &wl_seat_interface, 1));
-        // Once we have a seat, we can get the data device
     }
 }
 
@@ -216,7 +214,6 @@ static const wl_registry_listener registry_listener = {
     .global_remove = [](void*, struct wl_registry*, uint32_t) {}
 };
 
-// When you bind the seat in registry_handle_global:
 static void register_pointer_listener() {
     wl_pointer* pointer = wl_seat_get_pointer(seat);
     static const struct wl_pointer_listener pointer_listener = {
@@ -319,7 +316,7 @@ int cloak_init(const char* title, int width, int height, const char* className) 
     glfwSetWindowSizeCallback(window, cloak_set_window_resize_callback);
     glfwSetKeyCallback(window, cloak_set_window_key_callback);
     glfwSetCharCallback(window, cloak_set_window_char_callback);
-    // after creating context:
+
     if (!gladLoadGL(glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD" << std::endl;
         return -1;
@@ -461,10 +458,6 @@ void cloak_set_clipboard(GenericClipboardItem* data, const char** mime_types, co
 
     wl_data_device_set_selection(data_device, current_clipboard_source, last_serial);
     wl_display_flush(glfwGetWaylandDisplay());
-}
-
-void hello() {
-    std::cout << "Hello, World!" << std::endl;
 }
 
 #ifdef __cplusplus

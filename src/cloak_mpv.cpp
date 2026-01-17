@@ -35,7 +35,6 @@ void check_gl_error(const char *operation) {
 
 /* hardcoded proc lookup */
 static void *mpv_gl_get_proc(void *ctx, const char *name) {
-    std::cerr << "[mpv] get_proc name " << name << "\n";
     return (void *) cloak_get_proc_address(ctx, name);
 }
 
