@@ -1,3 +1,4 @@
+import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
@@ -20,6 +21,8 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation("dev.chrisbanes.haze:haze:1.7.1")
+            implementation("dev.chrisbanes.haze:haze-materials:1.7.1")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

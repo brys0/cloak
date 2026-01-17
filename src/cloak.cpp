@@ -1,5 +1,7 @@
+/**
+ * I pray for you to understand any of this code D:
+ */
 #include "cloak.h"
-
 
 #define CP_PRESS 1
 #define CP_RELEASE 2
@@ -8,8 +10,10 @@
 #define CP_EXIT 5
 #define CP_SCROLL 6
 
+#define GLFW_INCLUDE_NONE
 #include <cstring>
 #include <iostream>
+#include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include "EGL/egl.h"
 #define GLFW_EXPOSE_NATIVE_WAYLAND
@@ -18,6 +22,7 @@
 #include <unistd.h>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
+
 
 static std::queue<CloakEvent> event_queue;
 static GLFWwindow *window;
@@ -269,7 +274,7 @@ void init_wayland_clipboard() {
 #ifdef __cplusplus
 extern "C" {
 #endif
-bool cloak_init(const char* title, int width, int height, const char* className) {
+int cloak_init(const char* title, int width, int height, const char* className) {
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
 
     if (!glfwInit()) {
@@ -283,9 +288,10 @@ bool cloak_init(const char* title, int width, int height, const char* className)
                       << std::endl;
         }
 
-        return false;
+        return -1;
     }
 
+    glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
@@ -299,7 +305,24 @@ bool cloak_init(const char* title, int width, int height, const char* className)
     if (!window) {
         std::cerr << "Failed to create GLFW window." << std::endl;
         glfwTerminate();
-        return false;
+        return -1;
+    }
+
+
+    init_wayland_clipboard();
+
+    cloak_make_context_current();
+    glfwSetCursorPosCallback(window, cloak_set_cursor_position_callback);
+    glfwSetCursorEnterCallback(window, cloak_set_cursor_enter_callback);
+    glfwSetMouseButtonCallback(window, cloak_set_mouse_button_callback);
+    glfwSetScrollCallback(window, cloak_set_scroll_callback);
+    glfwSetWindowSizeCallback(window, cloak_set_window_resize_callback);
+    glfwSetKeyCallback(window, cloak_set_window_key_callback);
+    glfwSetCharCallback(window, cloak_set_window_char_callback);
+    // after creating context:
+    if (!gladLoadGL(glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+        return -1;
     }
 
     if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) {
@@ -311,22 +334,12 @@ bool cloak_init(const char* title, int width, int height, const char* className)
     std::cout << "Client API: " << (client_api == GLFW_OPENGL_API ? "OpenGL" : "OpenGL ES") << std::endl;
     std::cout << "Context API: " << (creation_api == GLFW_EGL_CONTEXT_API ? "EGL" : "GLX") << std::endl;
 
-    init_wayland_clipboard();
 
-    cloak_make_context_current();
-    // glfwSetCursorEnterCallback()
-    glfwSetCursorPosCallback(window, cloak_set_cursor_position_callback);
-    glfwSetCursorEnterCallback(window, cloak_set_cursor_enter_callback);
-    glfwSetMouseButtonCallback(window, cloak_set_mouse_button_callback);
-    glfwSetScrollCallback(window, cloak_set_scroll_callback);
-    glfwSetWindowSizeCallback(window, cloak_set_window_resize_callback);
-    glfwSetKeyCallback(window, cloak_set_window_key_callback);
-    glfwSetCharCallback(window, cloak_set_window_char_callback);
     cloak_set_swap_interval(0);
     cloak_swap_buffers();
 
 
-    return true;
+    return 0;
 }
 
 

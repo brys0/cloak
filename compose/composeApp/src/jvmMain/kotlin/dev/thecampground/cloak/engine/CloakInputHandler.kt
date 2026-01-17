@@ -197,14 +197,12 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
             else -> KeyEventType.KeyDown
         }
 
-        // Check for Ctrl+V before sending to Compose
         if (type == KeyEventType.KeyDown &&
-            event.value == 86 && // 'V' key
+            event.value == VK_V && // V
             (event.mod and CloakKeyModifiers.CTRL) != 0) {
 
             println("Should clipboard paste!")
             handlePaste()
-//            }
         }
 
         val keyEvent = mapKeyEvent(event, type)
@@ -214,10 +212,9 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
 
     // TODO: Doesn't work yet.
     private fun handlePaste() {
-        val text = "Example Test"
+        val text = "Example Text"
         println("[Cloak-Clipboard] Pasting ${text.length} characters")
 
-        // Inject as character events
         text.forEach { char ->
             val charEvent = CloakEvent().apply {
                 this.type = CloakInputEventTypes.CHAR

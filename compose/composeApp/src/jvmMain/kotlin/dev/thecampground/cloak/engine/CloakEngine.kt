@@ -4,12 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.graphics.asComposeCanvas
-import androidx.compose.ui.platform.PlatformContext
 import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.PlatformLayersComposeScene
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import dev.thecampground.cloak.external.CloakLibrary
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -29,15 +26,14 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
 import kotlin.time.measureTime
 
-
 @OptIn(InternalComposeUiApi::class)
-internal class CloakEngine
+class CloakEngine
     @OptIn(InternalComposeUiApi::class, DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     constructor(
         internal val cloak: CloakLibrary.Companion,
         contextPointer: NativePointer = cloak.getCurrentContext()!!,
         procAddressPointer: NativePointer = cloak.getProcAddress(),
-        dispatcher: CoroutineContext = Dispatchers.Main,
+        dispatcher: CoroutineContext = Dispatchers.Default,
         private val content: @Composable (CloakScope) -> Unit,
     ) { 
     // When true, the application will safely shut down   
@@ -45,11 +41,11 @@ internal class CloakEngine
     // Force at least one frame to render at startup
     private var isDirty = true
     private var size = cloak.getFramebufferSize()
-    var stats = EngineFrameStats()
+    internal var stats = EngineFrameStats()
+    var lastSize = IntSize.Zero
 
     private val scope = CloakScope(engine = this)
-//    private val platformContext: ComposeSceneContext = CloakSceneContext()
-    private val context = DirectContext.makeGLWithInterface(
+    internal val context = DirectContext.makeGLWithInterface(
         assembledInterface = GLAssembledInterface.createFromNativePointers(
             ctxPtr = contextPointer,
             fPtr = procAddressPointer,
@@ -115,6 +111,15 @@ internal class CloakEngine
     private fun draw() {
         this.cloak.makeContextCurrent()
 
+       if (this.lastSize == this.cloak.getFramebufferSize()) {
+           this.scope.onEngineDraw?.invoke(this, this.context)
+       } else {
+           this.lastSize = this.cloak.getFramebufferSize()
+       }
+        // Render at least once to create the texture
+
+
+        // Get the actual texture ID from mpv
         val renderTarget = BackendRenderTarget.makeGL(
             width = size.width,
             height = size.height,
@@ -131,19 +136,20 @@ internal class CloakEngine
             SurfaceColorFormat.RGBA_8888,
             ColorSpace.sRGB
         )
-
         val canvas = surface!!.canvas
-
         canvas.clear(Color.TRANSPARENT)
 
-        this.scene.render(canvas.asComposeCanvas(), currentNanoTime())
-
+        try {
+            this.scene.render(canvas.asComposeCanvas(), currentNanoTime())
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            println("Something went wrong while rendering scene: ${t}")
+        }
         // Cleanup
         surface.flushAndSubmit()
         surface.close()
         renderTarget.close()
 
-        // Swap buffer on-screen
         this.cloak.swapBuffers()
 
         // Frame no longer has pending changes, thus is not dirty
@@ -172,6 +178,8 @@ internal class CloakEngine
         }
 
         println("[Cloak->Engine]: First draw time took: $firstDrawTime")
+
+        this.cloak.setSwapInterval(1) // Perhaps let the user define this?
         this.cloak.showWindow() // Perhaps let the user define this?
 
         while (!this.cloak.shouldClose()) {
@@ -237,95 +245,5 @@ internal class CloakEngine
             return sb.toString()
         }
     }
-    
-//    internal class CloakSceneContext : ComposeSceneContext {
-//        private val platformContextImpl =
-//            CloakPlatformContext(CloakScreenReader())
-//
-//        override val platformContext: PlatformContext get() = platformContextImpl
-//    }
-//    internal class CloakScreenReader : PlatformScreenReader {
-//        override val isActive = false
-//    }
-//    @InternalComposeUiApi
-//    internal class CloakTextInputService : PlatformTextInputService {
-//
-//        private var onEditCommand: ((List<EditCommand>) -> Unit)? = null
-//        private var onImeAction: ((ImeAction) -> Unit)? = null
-//
-//        override fun startInput(
-//            value: TextFieldValue,
-//            imeOptions: ImeOptions,
-//            onEditCommand: (List<EditCommand>) -> Unit,
-//            onImeActionPerformed: (ImeAction) -> Unit
-//        ) {
-//            println("Start input!")
-//            this.onEditCommand = onEditCommand
-//            this.onImeAction = onImeActionPerformed
-//        }
-//
-//        override fun stopInput() {
-//            onEditCommand = null
-//            onImeAction = null
-//        }
-//
-//        override fun showSoftwareKeyboard() {}
-//        override fun hideSoftwareKeyboard() {}
-//
-//        override fun updateState(oldValue: TextFieldValue?, newValue: TextFieldValue) {}
-//
-//        /** Call this from your engine when text is produced */
-//        fun commitText(text: String) {
-//            onEditCommand?.invoke(
-//                listOf(CommitTextCommand(text, 1))
-//            )
-//        }
-//
-//        fun deleteBackwards() {
-//            onEditCommand?.invoke(
-//                listOf(DeleteSurroundingTextCommand(1, 0))
-//            )
-//        }
-//    }
-//
-//    class CloakWindowInfo : WindowInfo {
-//
-//        override var isWindowFocused: Boolean by mutableStateOf(true)
-//
-//        override var keyboardModifiers: PointerKeyboardModifiers by mutableStateOf(
-//            PointerKeyboardModifiers()
-//        )
-//
-//        override var containerSize: IntSize by mutableStateOf(IntSize.Zero)
-//    }
-//
-//
-//    internal class CloakPlatformContext(override val screenReader: PlatformScreenReader) : PlatformContext {
-//
-//        val textInputServiceImpl = CloakTextInputService()
-//        private val inputModeManagerImpl = CloakInputModeManager()
-//
-//        override val windowInfo: WindowInfo = CloakWindowInfo()
-//
-//        override val inputModeManager: InputModeManager
-//            get() = inputModeManagerImpl
-//
-//        override val textInputService: PlatformTextInputService
-//            get() = textInputServiceImpl
-//    }
-//
-//    internal class CloakInputModeManager(
-//        initialMode: InputMode = InputMode.Keyboard
-//    ) : InputModeManager {
-//
-//        private var _inputMode by mutableStateOf(initialMode)
-//
-//        override val inputMode: InputMode
-//            get() = _inputMode
-//
-//        override fun requestInputMode(inputMode: InputMode): Boolean {
-//            _inputMode = inputMode
-//            return true
-//        }
-//    }
+
 }

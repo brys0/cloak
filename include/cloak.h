@@ -4,6 +4,7 @@
 
 #ifndef CLOAK_H
 #define CLOAK_H
+#define GLFW_INCLUDE_NONE   // must be before glfw3.h
 #include <GLFW/glfw3.h>
 
 #ifdef __cplusplus
@@ -41,7 +42,7 @@ extern "C" {
      * Creates the underlying window with strict wayland context required.
      * @return true if window creation was successful, otherwise false.
      */
-    bool cloak_init(const char* title, int width, int height, const char* className = "cloak_app");
+    int cloak_init(const char* title, int width, int height, const char* className = "cloak_app");
 
 
     void cloak_show_window();

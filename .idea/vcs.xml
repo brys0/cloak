@@ -2,6 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/compose" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/skiko" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/subprojects/mpv" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/subprojects/skia" vcs="Git" />
   </component>
 </project>
