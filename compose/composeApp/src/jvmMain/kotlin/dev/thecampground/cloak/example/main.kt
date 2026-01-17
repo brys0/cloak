@@ -39,11 +39,20 @@ import dev.thecampground.cloak.FpsCounter
 import dev.thecampground.cloak.app.CloakAppOptions
 import dev.thecampground.cloak.app.cloakApp
 import dev.thecampground.cloak.engine.LocalCloakScope
+import dev.thecampground.cloak.mpv.MPVCompat
 import org.jetbrains.skia.BackendTexture
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.SurfaceOrigin
 
+
+//fun main() {
+//    val mpvCompat = MPVCompat()
+//
+//    val renderContext = mpvCompat.createRenderContext(10)
+//
+//    println(renderContext)
+//}
 @OptIn(ExperimentalHazeMaterialsApi::class)
 fun main() = cloakApp(
     options = CloakAppOptions(

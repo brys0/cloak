@@ -26,8 +26,21 @@ skia_proj = subproject('skia')
 cz_skia_dep = skia_proj.get_variable('cz_skia_dep')
 
 mpv_dep = mpv_sp.get_variable('libmpv_dep')
+
+includes = ['include', 'include/jni']
+
+
+
+target = target_machine.system()
+
+if target == 'windows'
+    includes += 'include/jni/win32'
+elif target == 'linux'
+    includes += 'include/jni/linux'
+endif
+
 # Tell Meson where to find your headers
-inc = include_directories('include')
+inc = include_directories(includes)
 
 # Go into subdirectories
 subdir('src')
