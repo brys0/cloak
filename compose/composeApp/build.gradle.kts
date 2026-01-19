@@ -23,6 +23,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation("dev.chrisbanes.haze:haze:1.7.1")
             implementation("dev.chrisbanes.haze:haze-materials:1.7.1")
+            implementation("dev.zt64.mpvkt:mpvkt")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
