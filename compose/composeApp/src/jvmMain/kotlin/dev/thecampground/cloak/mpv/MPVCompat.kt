@@ -1,7 +1,9 @@
 package dev.thecampground.cloak.mpv
 
+import org.jetbrains.skia.impl.NativePointer
+
 private val cloakPath =
-    "cloak"
+    "cloakmpvcompat"
 
 class MPVCompat {
     @JvmField
@@ -18,7 +20,8 @@ class MPVCompat {
      * Java side passes the desired OpenGL format (e.g., 0x881A for RGBA16F).
      * C++ creates the FBO/Texture and returns a populated MPVRenderContext object.
      */
-    external fun createRenderContext(format: Int): Boolean
+    external fun createRenderContext(context: NativePointer, format: Int): Boolean
+    external fun flush()
 
     external fun resizeMPVTexture(width: Int, height: Int, format: Int): Boolean
     external fun cleanup(): Boolean

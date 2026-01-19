@@ -9,6 +9,8 @@
 #include <GLFW/glfw3.h>
 
 #include "jni.h"
+#include "cloak.h"
+
 // Static Cache
 static jclass COMPAT_CLASS = nullptr;
 static jclass CONTEXT_CLASS = nullptr;
@@ -18,12 +20,14 @@ static jfieldID CONTEXT_TEXID_FIELD = nullptr;  // MPVRenderContext.textureID
 static jfieldID CONTEXT_FBO_FIELD = nullptr;    // MPVRenderContext.framebuffer
 static jfieldID CONTEXT_TEX_FORMAT_FIELD = nullptr;    // MPVRenderContext.textureFormat
 
+GLFWwindow* window = nullptr;
+
 void logError(const std::string &message) {
     std::cerr << "[Cloak->MPVCompat] "<< message << std::endl;
 }
 
 bool checkGLInit() {
-    if (!gladLoadGL(glfwGetProcAddress)) {
+    if (!glfwGetCurrentContext()) {
         logError("You must establish an OpenGL context first.");
         return false;
     }
@@ -36,7 +40,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR;
     }
-
     jclass localCompat = env->FindClass("dev/thecampground/cloak/mpv/MPVCompat");
     if (!localCompat) return JNI_ERR;
     COMPAT_CLASS = reinterpret_cast<jclass>(env->NewGlobalRef(localCompat));
@@ -58,9 +61,10 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     return JNI_VERSION_1_6;
 }
 
-JNI_METHOD(jboolean, createRenderContext)(JNIEnv* env, jobject thiz, jint format) {
-    if (!checkGLInit()) {
-        return false;
+JNI_METHOD(jboolean, createRenderContext)(JNIEnv* env, jobject thiz, jlong context, jint format) {
+    if (!gladLoadGL(glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+        return -1;
     }
 
     jclass cls = env->FindClass("dev/thecampground/cloak/mpv/MPVRenderContext");
@@ -69,7 +73,7 @@ JNI_METHOD(jboolean, createRenderContext)(JNIEnv* env, jobject thiz, jint format
         return false;
     }
 
-    jmethodID constructor = env->GetMethodID(cls, "<init>", "(II)V");
+    jmethodID constructor = env->GetMethodID(cls, "<init>", "(III)V");
     if (!constructor) {
         logError("Could not find constructor for MPVRenderContext class");
         return false;
@@ -87,7 +91,7 @@ JNI_METHOD(jboolean, createRenderContext)(JNIEnv* env, jobject thiz, jint format
 
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
-    glTexImage2D(GL_TEXTURE_2D, 0, format, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
@@ -109,8 +113,11 @@ JNI_METHOD(jboolean, createRenderContext)(JNIEnv* env, jobject thiz, jint format
     }
 
     env->SetObjectField(thiz, fieldId, renderContext);
-
     return true;
+}
+
+JNI_METHOD(void, flush)(JNIEnv* env, jobject thiz) {
+    glFlush();
 }
 
 JNI_METHOD(jboolean, resizeMPVTexture)(JNIEnv* env, jobject thiz, jint width, jint height) {
@@ -124,9 +131,10 @@ JNI_METHOD(jboolean, resizeMPVTexture)(JNIEnv* env, jobject thiz, jint width, ji
     }
 
     const jint textureID = env->GetIntField(renderContextObj, CONTEXT_TEXID_FIELD);
+    const jint textureFormat = env->GetIntField(renderContextObj, CONTEXT_TEX_FORMAT_FIELD);
 
     glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureID));
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, textureFormat, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
     return true;
 }
