@@ -2,6 +2,7 @@
 
 #define GLFW_INCLUDE_NONE
 #include <cloak.h>
+#include <cstring>
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
 #include <glad/gl.h>
@@ -97,7 +98,7 @@ CloakMPV *cloak_mpv_create() {
     mpv_set_option_string(ctx->mpv, "terminal", "yes");
     mpv_set_option_string(ctx->mpv, "msg-level", "all=v");
     mpv_set_option_string(ctx->mpv, "hwdec", "auto");
-    mpv_set_option_string(ctx->mpv, "vf", "format=rgba64");
+    mpv_observe_property(ctx->mpv, 100, "video-out-params", MPV_FORMAT_NODE);
 
     mpv_set_option_string(ctx->mpv, "video-timing-offset", "0");
     mpv_set_option_string(ctx->mpv, "opengl-swapinterval", "0");
@@ -190,13 +191,41 @@ GLuint cloak_mpv_get_texture(CloakMPV *ctx) {
     return ctx->colorbuffer;
 }
 
-void cloak_mpv_poll(CloakMPV *ctx) {
+    void cloak_mpv_poll(CloakMPV *ctx) {
     if (!ctx) return;
 
     while (true) {
         mpv_event *ev = mpv_wait_event(ctx->mpv, 0);
         if (ev->event_id == MPV_EVENT_NONE)
             break;
+
+        if (ev->event_id == MPV_EVENT_PROPERTY_CHANGE) {
+            mpv_event_property *prop = (mpv_event_property *)ev->data;
+
+            if (strcmp(prop->name, "video-out-params") == 0 && prop->format == MPV_FORMAT_NODE) {
+                mpv_node *node = (mpv_node *)prop->data;
+
+                // Look for "pixelformat" to determine if yuv
+                if (node->format == MPV_FORMAT_NODE_MAP) {
+                    for (int i = 0; i < node->u.list->num; i++) {
+                        if (strcmp(node->u.list->keys[i], "pixelformat") == 0) {
+                            const char *fmt = node->u.list->values[i].u.string;
+
+                            if (fmt && strstr(fmt, "rgb") == nullptr) {
+                                std::cout << "[mpv] Non-RGB format detected (" << fmt << "). Applying rgba64 filter.\n";
+                                mpv_set_option_string(ctx->mpv, "vf", "format=rgba64");
+                            } else {
+                                std::cout << "[mpv] RGB compatible format detected (" << fmt << "). Removing filter.\n";
+                                 mpv_set_option_string(ctx->mpv, "vf", "");
+                            }
+
+                            mpv_unobserve_property(ctx->mpv, 100);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
