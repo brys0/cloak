@@ -31,11 +31,12 @@ class CloakEngine
     @OptIn(InternalComposeUiApi::class, DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     constructor(
         internal val cloak: CloakLibrary.Companion,
-        contextPointer: NativePointer = cloak.getCurrentContext()!!,
+        val contextPointer: NativePointer = cloak.getCurrentContext()!!,
         procAddressPointer: NativePointer = cloak.getProcAddress(),
         dispatcher: CoroutineContext = Dispatchers.Default,
         private val content: @Composable (CloakScope) -> Unit,
-    ) { 
+    ) {
+    val renderQueue = RenderQueue()
     // When true, the application will safely shut down   
     private var shouldClose = false 
     // Force at least one frame to render at startup
@@ -44,7 +45,7 @@ class CloakEngine
     internal var stats = EngineFrameStats()
     var lastSize = IntSize.Zero
 
-    private val scope = CloakScope(engine = this)
+    private val scope = CloakScope(engine = this, renderQueue = this.renderQueue)
     internal val context = DirectContext.makeGLWithInterface(
         assembledInterface = GLAssembledInterface.createFromNativePointers(
             ctxPtr = contextPointer,
@@ -111,11 +112,7 @@ class CloakEngine
     private fun draw() {
         this.cloak.makeContextCurrent()
 
-       if (this.lastSize == this.cloak.getFramebufferSize()) {
-           this.scope.onEngineDraw?.invoke(this, this.context)
-       } else {
-           this.lastSize = this.cloak.getFramebufferSize()
-       }
+       this.renderQueue.drain() // Drain render queue
         // Render at least once to create the texture
 
 
@@ -179,7 +176,7 @@ class CloakEngine
 
         println("[Cloak->Engine]: First draw time took: $firstDrawTime")
 
-        this.cloak.setSwapInterval(1) // Perhaps let the user define this?
+        this.cloak.setSwapInterval(2) // Perhaps let the user define this?
         this.cloak.showWindow() // Perhaps let the user define this?
 
         while (!this.cloak.shouldClose()) {
@@ -246,4 +243,34 @@ class CloakEngine
         }
     }
 
+    inner class RenderQueue {
+
+        private val tasks = ArrayDeque<RenderSideEffect>()
+
+        fun post(action: RenderSideEffect): RenderSideEffect {
+            synchronized(tasks) {
+                tasks.add(action)
+            }
+
+            return action
+        }
+
+        fun remove(action: RenderSideEffect) {
+            synchronized(tasks) {
+                tasks.remove(action)
+            }
+        }
+
+        internal fun drain() {
+                val snapshot: List<RenderSideEffect>
+                synchronized(tasks) {
+                    snapshot = tasks.toList()
+                }
+
+                for (it in snapshot) {
+                    val dequeue = !it(this@CloakEngine, this@CloakEngine.context)
+                    if (dequeue) remove(it)
+                }
+            }
+    }
 }
