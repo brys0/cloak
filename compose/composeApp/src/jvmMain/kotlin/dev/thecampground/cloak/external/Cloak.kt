@@ -28,13 +28,13 @@ open class CloakEvent : Structure() {
 }
 
 @Structure.FieldOrder("mpv", "fbId", "texId", "render")
-open class CloakMPV : Structure() {
+open class CloakMPVState : Structure() {
     @JvmField var mpv: NativePointer = 0
     @JvmField var fbId: Int = 0
     @JvmField var texId: Int = 0
     @JvmField var render: NativePointer = 0
 
-    class ByReference : CloakMPV(), Structure.ByReference
+    class ByReference : CloakMPVState(), Structure.ByReference
 }
 object CloakKeyModifiers {
     const val SHIFT = 1
@@ -127,16 +127,7 @@ interface CloakLibrary : Library {
     fun cloak_set_clipboard(data: Pointer, mime_types: Array<String>, mime_count: Int)
     fun cloak_set_clipboard_text(text: String)
 
-    fun cloak_mpv_create(): CloakMPV.ByReference
-    fun cloak_mpv_load(mpv: CloakMPV.ByReference, path: String)
-    fun cloak_mpv_render(mpv: CloakMPV.ByReference, w: Int, h: Int)
-    fun cloak_mpv_check_update(mpv: CloakMPV.ByReference): Long
-    fun cloak_mpv_validate_texture(mpv: CloakMPV.ByReference)
 
-    fun cloak_mpv_get_texture(mpv: CloakMPV.ByReference): Int
-    fun cloak_mpv_get_handle(mpv: CloakMPV.ByReference): Pointer
-    fun cloak_mpv_poll(mpv: CloakMPV.ByReference): MpvEvent?
-    fun cloak_mpv_resize_texture(mpv: CloakMPV.ByReference, width: Int, height: Int)
 
     companion object {
         private val INSTANCE by lazy { Native.load(cloakPath, CloakLibrary::class.java) }
@@ -196,16 +187,42 @@ interface CloakLibrary : Library {
             )
         }
 
-        fun mpvCreate() = INSTANCE.cloak_mpv_create()
-        fun mpvLoad(mpv: CloakMPV.ByReference, path: String) = INSTANCE.cloak_mpv_load(mpv, path)
-        fun mpvRender(mpv: CloakMPV.ByReference, w: Int, h: Int) = INSTANCE.cloak_mpv_render(mpv, w, h)
+//        fun mpvCreate() = INSTANCE.cloak_mpv_create()
+//        fun mpvLoad(mpv: CloakMPVState.ByReference, path: String) = INSTANCE.cloak_mpv_load(mpv, path)
 
-        fun mpvValidateTexture(mpv: CloakMPV.ByReference) = INSTANCE.cloak_mpv_validate_texture(mpv)
-        fun mpvGetTexture(mpv: CloakMPV.ByReference) = INSTANCE.cloak_mpv_get_texture(mpv)
-        fun mpvGetHandle(mpv: CloakMPV.ByReference) = INSTANCE.cloak_mpv_get_handle(mpv)
-        fun mpvPoll(mpv: CloakMPV.ByReference) = INSTANCE.cloak_mpv_poll(mpv)
+    }
+}
 
-        fun mpvResizeTexture(mpv: CloakMPV.ByReference, width: Int, height: Int) = INSTANCE.cloak_mpv_resize_texture(mpv, width, height)
-        fun mpvCheckUpdate(mpv: CloakMPV.ByReference) = INSTANCE.cloak_mpv_check_update(mpv)
+interface CloakMPV : Library {
+    fun cloak_mpv_create(): CloakMPVState.ByReference
+    fun cloak_mpv_load(mpv: CloakMPVState.ByReference, path: String)
+    fun cloak_mpv_render(mpv: CloakMPVState.ByReference, w: Int, h: Int)
+    fun cloak_mpv_check_update(mpv: CloakMPVState.ByReference): Long
+    fun cloak_mpv_validate_texture(mpv: CloakMPVState.ByReference)
+
+    fun cloak_mpv_get_texture(mpv: CloakMPVState.ByReference): Int
+    fun cloak_mpv_get_handle(mpv: CloakMPVState.ByReference): Pointer
+    fun cloak_mpv_poll(mpv: CloakMPVState.ByReference): MpvEvent?
+    fun cloak_mpv_resize_texture(mpv: CloakMPVState.ByReference, width: Int, height: Int)
+
+    companion object {
+        private val INSTANCE by lazy { Native.load(cloakPath, CloakMPV::class.java) }
+
+        var state: CloakMPVState.ByReference = CloakMPVState.ByReference()
+        fun create(): Companion {
+            state = INSTANCE.cloak_mpv_create()
+            return this
+        }
+        fun load(path: String) {
+            INSTANCE.cloak_mpv_load(state, path)
+        }
+
+        fun mpvRender(mpv: CloakMPVState.ByReference, w: Int, h: Int) = INSTANCE.cloak_mpv_render(mpv, w, h)
+        fun mpvValidateTexture(mpv: CloakMPVState.ByReference) = INSTANCE.cloak_mpv_validate_texture(mpv)
+        fun mpvGetTexture(mpv: CloakMPVState.ByReference) = INSTANCE.cloak_mpv_get_texture(mpv)
+        fun mpvGetHandle(mpv: CloakMPVState.ByReference) = INSTANCE.cloak_mpv_get_handle(mpv)
+        fun mpvPoll(mpv: CloakMPVState.ByReference) = INSTANCE.cloak_mpv_poll(mpv)
+        fun mpvResizeTexture(mpv: CloakMPVState.ByReference, width: Int, height: Int) = INSTANCE.cloak_mpv_resize_texture(mpv, width, height)
+        fun mpvCheckUpdate(mpv: CloakMPVState.ByReference) = INSTANCE.cloak_mpv_check_update(mpv)
     }
 }

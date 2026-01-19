@@ -2,6 +2,17 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/ffmpeg" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/libass" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/libplacebo" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/libplacebo/3rdparty/Vulkan-Headers" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/libplacebo/3rdparty/fast_float" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/libplacebo/3rdparty/glad" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/libplacebo/3rdparty/jinja" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/libplacebo/3rdparty/markupsafe" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/libplacebo/demos/3rdparty/nuklear" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/compose/mpv-kt/mpv/native/subprojects/mpv" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/subprojects/mpv" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/subprojects/skia" vcs="Git" />
   </component>

@@ -39,7 +39,18 @@ import dev.thecampground.cloak.FpsCounter
 import dev.thecampground.cloak.app.CloakAppOptions
 import dev.thecampground.cloak.app.cloakApp
 import dev.thecampground.cloak.engine.LocalCloakScope
+import dev.thecampground.cloak.engine.runOnRenderThread
+import dev.thecampground.cloak.engine.runOnceOnRenderThread
+import dev.thecampground.cloak.external.CloakMPV
 import dev.thecampground.cloak.mpv.MPVCompat
+import dev.zt64.mpvkt.Mpv
+import dev.zt64.mpvkt.MpvLogLevel
+import dev.zt64.mpvkt.command
+import dev.zt64.mpvkt.render.MpvRenderApiType
+import dev.zt64.mpvkt.render.MpvRenderContext
+import dev.zt64.mpvkt.render.RenderParam
+import dev.zt64.mpvkt.render.renderContextCreate
+import dev.zt64.mpvkt.setOption
 import org.jetbrains.skia.BackendTexture
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Image
@@ -90,7 +101,9 @@ fun main() = cloakApp(
 @Composable
 fun VideoCanvas(path: String, modifier: Modifier = Modifier) {
     val scope = LocalCloakScope.current
-    val mpv = remember { scope.library.mpvCreate() } // Create MPV context
+    val mpv = remember { Mpv() } // Create MPV context
+    val compat = remember { MPVCompat() }
+    var renderContext by remember { mutableStateOf<MpvRenderContext?>(null) }
 
     var currentSize = remember { IntSize.Zero }
     // Textures for MPV
@@ -99,16 +112,38 @@ fun VideoCanvas(path: String, modifier: Modifier = Modifier) {
 
     var lastSize = remember { IntSize.Zero }
 
-    LaunchedEffect(path) {
-        scope.library.mpvLoad(mpv, path)
+    scope.runOnceOnRenderThread { engine, context ->
+        val context = scope.library.getCurrentContext()
+        val compatRenderCtx = compat.createRenderContext(context = context ?: 0L, format = 0x881A) // Create texture in GL
+        println("Compat: ${compat.renderContext} ${compatRenderCtx}")
+        mpv.requestLogMessages(MpvLogLevel.WARN)
+        mpv.setOption("msg-level", "all=none")
+
+        mpv.setOption("terminal", "yes")
+        mpv.setOption("hwdec", "auto")
+        mpv.setOption("vo", "libmpv")
+
+        mpv.init()
+        renderContext = mpv.renderContextCreate(
+            MpvRenderApiType.OPENGL,
+            listOf(
+                RenderParam.Companion.OpenGLInitParams(
+                    getProcAddress = scope.library.getProcAddress(),
+                    getProcAddressCtx = scope.library.getCurrentContext() ?: 0
+                )
+            )
+        )
+
+        mpv.command("loadfile", path)
     }
 
-    LaunchedEffect(mpv) {
-        scope.onEngineDraw = { engine, context ->
-            val flags = scope.library.mpvCheckUpdate(mpv)
-            if (flags != 0L || lastSize != currentSize) {
+    scope.runOnRenderThread { engine, context ->
+        val event = mpv.waitEvent(0)
+        renderContext?.let {
+            val flags = it.update()
+            if (flags != 0.toULong() || lastSize != currentSize) {
                 if (lastSize != currentSize) {
-                    engine.cloak.mpvResizeTexture(mpv!!, currentSize.width, currentSize.height)
+                    compat.resizeMPVTexture(currentSize.width, currentSize.height, compat.renderContext!!.textureFormat)
                     lastSize = currentSize
                 }
                 context.resetGLAll()
@@ -118,28 +153,105 @@ fun VideoCanvas(path: String, modifier: Modifier = Modifier) {
                         width = currentSize.width,
                         height = currentSize.height,
                         isMipmapped = false,
-                        textureId = scope.library.mpvGetTexture(mpv),
+                        textureId = compat.renderContext!!.textureID,
                         textureTarget = 0x0DE1,
-                        textureFormat = 0x881A
+                        textureFormat = compat.renderContext!!.textureFormat,
                     )
 
                     backendImage = Image.adoptTextureFrom(
                         context,
-                        backendTexture!!,
+                        backendTexture,
                         SurfaceOrigin.BOTTOM_LEFT,
                         ColorType.RGBA_F16
                     )
                 }
 
-                scope.library.mpvRender(mpv, currentSize.width, currentSize.height)
+                renderContext!!.render(
+                    params = listOf(
+                        RenderParam.Companion.OpenGLFBO(
+                            fbo = compat.renderContext!!.framebuffer,
+                            w = currentSize.width,
+                            h = currentSize.height,
+                            internalFormat = compat.renderContext!!.textureFormat
+                        ),
+                        RenderParam.Companion.FlipY(true)
+                    )
+                )
+                compat.flush()
             }
         }
+
+
+        true
+    }
+
+    Canvas(modifier = Modifier.fillMaxSize().then(modifier)) {
+        currentSize = drawContext.size.toIntSize()
+        drawIntoCanvas { canvas ->
+            val nativeCanvas = canvas.nativeCanvas
+            backendImage?.let {
+                nativeCanvas.drawImageRect(
+                    backendImage!!,
+                    org.jetbrains.skia.Rect(0f, 0f, drawContext.size.width, drawContext.size.height)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun VideoCanvas2(path: String, modifier: Modifier = Modifier) {
+    val scope = LocalCloakScope.current
+    val mpv = remember { CloakMPV.create() } // Create MPV context
+
+    var currentSize = remember { IntSize.Zero }
+    // Textures for MPV
+    var backendTexture = remember<BackendTexture?> { null }
+    var backendImage = remember<Image?> { null }
+
+    var lastSize = remember { IntSize.Zero }
+
+    LaunchedEffect(path) {
+        mpv.load(path)
+    }
+
+    scope.runOnRenderThread { engine, context ->
+        val flags = mpv.mpvCheckUpdate(mpv.state)
+        if (flags != 0L || lastSize != currentSize) {
+            if (lastSize != currentSize) {
+                mpv.mpvResizeTexture(mpv.state, currentSize.width, currentSize.height)
+                lastSize = currentSize
+            }
+            context.resetGLAll()
+
+            if (backendTexture == null || lastSize != currentSize) {
+                backendTexture = BackendTexture.makeGL(
+                    width = currentSize.width,
+                    height = currentSize.height,
+                    isMipmapped = false,
+                    textureId = mpv.mpvGetTexture(mpv.state),
+                    textureTarget = 0x0DE1,
+                    textureFormat = 0x881A
+                )
+
+                backendImage = Image.adoptTextureFrom(
+                    context,
+                    backendTexture!!,
+                    SurfaceOrigin.BOTTOM_LEFT,
+                    ColorType.RGBA_F16
+                )
+            }
+
+            mpv.mpvRender(mpv.state, currentSize.width, currentSize.height)
+
+        }
+
+        true
     }
 
     DisposableEffect(Unit) {
         onDispose {
             println("Disposed")
-            scope.onEngineDraw = null
 
             backendTexture?.close()
             backendImage?.close()
