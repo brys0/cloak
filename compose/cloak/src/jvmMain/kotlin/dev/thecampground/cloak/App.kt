@@ -25,8 +25,6 @@ import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-import cloak.composeapp.generated.resources.Res
-import cloak.composeapp.generated.resources.compose_multiplatform
 
 private const val UPDATE_FPS_EVERY_MS = 60
 
@@ -108,7 +106,6 @@ fun App() {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
                     Text("Compose: $greeting")
                 }
             }

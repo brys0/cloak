@@ -103,6 +103,7 @@ CloakMPV *cloak_mpv_create() {
     mpv_set_option_string(ctx->mpv, "video-timing-offset", "0");
     mpv_set_option_string(ctx->mpv, "opengl-swapinterval", "0");
 
+
     mpv_initialize(ctx->mpv);
     mpv_request_log_messages(ctx->mpv, "debug");
     mpv_set_option_string(ctx->mpv, "vo", "libmpv");

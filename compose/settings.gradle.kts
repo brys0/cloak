@@ -33,7 +33,7 @@ plugins {
 }
 
 // settings.gradle.kts (Main Project)
-rootProject.name = "cloak"
+rootProject.name = "cloak-project"
 
 includeBuild("mpv-kt") {
     // 1. Give it a unique build name to avoid the "same name" error
@@ -45,5 +45,5 @@ includeBuild("mpv-kt") {
     }
 }
 
-include(":composeApp")
-include(":composeApp")
+include(":cloak")
+include(":example")

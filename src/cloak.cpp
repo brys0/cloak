@@ -28,11 +28,13 @@ static std::queue<CloakEvent> event_queue;
 static GLFWwindow *window;
 
 void cloak_set_cursor_position_callback(GLFWwindow *_, double x, double y) {
+    int mouseEvent = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+
     event_queue.push(
         {
             EVENT_MOVE,
             CP_MOVE,
-            0,
+            mouseEvent,
             0,
             static_cast<float>(x),
             static_cast<float>(y),

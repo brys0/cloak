@@ -134,14 +134,18 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
             CloakMoveTypes.EXIT -> PointerEventType.Exit
             else -> PointerEventType.Unknown
         }
-
+        val mouseEvent = when (event.value) {
+            CloakKeyEvents.RELEASED -> PointerEventType.Release
+            CloakKeyEvents.PRESSED -> PointerEventType.Press
+            else -> PointerEventType.Unknown
+        }
         this.scene.sendPointerEvent(
             eventType = type,
             pointers = listOf(
                 ComposeScenePointer(
                     id = this.mouseID,
                     position = position,
-                    pressed = false
+                    pressed = mouseEvent == PointerEventType.Press
                 )
             ),
         )
@@ -212,7 +216,7 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
 
     // TODO: Doesn't work yet.
     private fun handlePaste() {
-        val text = "Example Text"
+        val text = "https://blurbusters.com/wp-content/uploads/2019/01/battlefield_1080p_120fps_8mbps.mp4"
         println("[Cloak-Clipboard] Pasting ${text.length} characters")
 
         text.forEach { char ->

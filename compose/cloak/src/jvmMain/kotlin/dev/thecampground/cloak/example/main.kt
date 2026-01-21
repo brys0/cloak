@@ -82,7 +82,7 @@ fun main() = cloakApp(
             progressive = HazeProgressive.verticalGradient(startIntensity = 1.5f, endIntensity = 0f)
         }, horizontalAlignment = Alignment.CenterHorizontally) {
             Row(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                FpsCounter( textStyle = TextStyle(color = Color.White))
+//                FpsCounter( textStyle = TextStyle(color = Color.White))
 
                 OutlinedTextField(onValueChange = { text -> path = text }, value = path, label = {
                     Text("Video Path or URL")
@@ -111,6 +111,7 @@ fun VideoCanvas(path: String, modifier: Modifier = Modifier) {
     var backendImage = remember<Image?> { null }
 
     var lastSize = remember { IntSize.Zero }
+    val hazeState = rememberHazeState()
 
     scope.runOnceOnRenderThread { engine, context ->
         val context = scope.library.getCurrentContext()
@@ -122,8 +123,9 @@ fun VideoCanvas(path: String, modifier: Modifier = Modifier) {
         mpv.setOption("terminal", "yes")
         mpv.setOption("hwdec", "auto")
         mpv.setOption("vo", "libmpv")
-
+        mpv.setOption("video-timing-offset", "0")
         mpv.init()
+        println("Creating mpv render context")
         renderContext = mpv.renderContextCreate(
             MpvRenderApiType.OPENGL,
             listOf(
@@ -133,6 +135,7 @@ fun VideoCanvas(path: String, modifier: Modifier = Modifier) {
                 )
             )
         )
+        println("Done.")
 
         mpv.command("loadfile", path)
     }
@@ -142,6 +145,7 @@ fun VideoCanvas(path: String, modifier: Modifier = Modifier) {
         renderContext?.let {
             val flags = it.update()
             if (flags != 0.toULong() || lastSize != currentSize) {
+
                 if (lastSize != currentSize) {
                     compat.resizeMPVTexture(currentSize.width, currentSize.height, compat.renderContext!!.textureFormat)
                     lastSize = currentSize

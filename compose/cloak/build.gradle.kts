@@ -38,14 +38,3 @@ kotlin {
 }
 
 
-compose.desktop {
-    application {
-        mainClass = "dev.thecampground.cloak.cloak.MainKt"
-
-        nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "dev.thecampground.cloak.cloak"
-            packageVersion = "1.0.0"
-        }
-    }
-}

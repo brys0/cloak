@@ -11,6 +11,7 @@ import dev.thecampground.cloak.external.CloakLibrary
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.GlobalScope
 import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.ColorSpace
@@ -103,7 +104,7 @@ class CloakEngine
 
     @OptIn(InternalComposeUiApi::class)
     private fun shouldRender(): Boolean {
-        return this.isDirty || this.scene.hasInvalidations()
+        return this.isDirty || this.scene.hasInvalidations() || this.renderQueue.size() > 0
     }
     /**
      * This should only handle drawing of the frame to the window.
@@ -111,8 +112,7 @@ class CloakEngine
     @OptIn(InternalComposeUiApi::class)
     private fun draw() {
         this.cloak.makeContextCurrent()
-
-       this.renderQueue.drain() // Drain render queue
+        this.renderQueue.drain() // Drain render queue
         // Render at least once to create the texture
 
 
@@ -164,6 +164,8 @@ class CloakEngine
     }
     
     init {
+        GlobalCloakScope.init { this.scope }
+        RenderQueueDispatcher.init { this to this.scope }
         this.scene.setContent {
             CompositionLocalProvider(LocalCloakScope provides this.scope) {
                 content(this.scope)
@@ -246,6 +248,7 @@ class CloakEngine
     inner class RenderQueue {
 
         private val tasks = ArrayDeque<RenderSideEffect>()
+        fun size() = tasks.size
 
         fun post(action: RenderSideEffect): RenderSideEffect {
             synchronized(tasks) {
@@ -263,6 +266,7 @@ class CloakEngine
 
         internal fun drain() {
                 val snapshot: List<RenderSideEffect>
+
                 synchronized(tasks) {
                     snapshot = tasks.toList()
                 }
