@@ -7,11 +7,12 @@ import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.IntSize
-import dev.thecampground.cloak.external.CloakLibrary
+import dev.thecampground.cloak.external.glfw.GLFW
+import dev.thecampground.cloak.external.glfw.GLFWCallbacks
+import dev.thecampground.cloak.external.glfw.GLFWWindow
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.ColorSpace
@@ -31,9 +32,10 @@ import kotlin.time.measureTime
 class CloakEngine
     @OptIn(InternalComposeUiApi::class, DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     constructor(
-        internal val cloak: CloakLibrary.Companion,
-        val contextPointer: NativePointer = cloak.getCurrentContext()!!,
-        procAddressPointer: NativePointer = cloak.getProcAddress(),
+        val glfw: GLFW,
+        val window: GLFWWindow,
+        val contextPointer: NativePointer = glfw.getCurrentContext(),
+        procAddressPointer: NativePointer = GLFWCallbacks.getProcAddressStub.address(),
         dispatcher: CoroutineContext = Dispatchers.Default,
         private val content: @Composable (CloakScope) -> Unit,
     ) {
@@ -42,7 +44,7 @@ class CloakEngine
     private var shouldClose = false 
     // Force at least one frame to render at startup
     private var isDirty = true
-    private var size = cloak.getFramebufferSize()
+    private var size = window.size
     internal var stats = EngineFrameStats()
     var lastSize = IntSize.Zero
 
@@ -63,7 +65,7 @@ class CloakEngine
     )
 
     private val inputHandler = CloakInputHandler(
-        cloak = this.cloak,
+        window  = this.window,
         scene = this.scene,
         onResize = { size ->
             this.size = size
@@ -77,7 +79,7 @@ class CloakEngine
     private fun startFrame() {
         val frameTime = measureTime {
             val pollingTime = measureTime {
-                this.cloak.pollWindowEvents()
+                this.glfw.pollEvents()
             }
 
             val inputTime = measureTime {
@@ -111,7 +113,7 @@ class CloakEngine
      */
     @OptIn(InternalComposeUiApi::class)
     private fun draw() {
-        this.cloak.makeContextCurrent()
+        this.window.makeContextCurrent()
         this.renderQueue.drain() // Drain render queue
         // Render at least once to create the texture
 
@@ -147,7 +149,7 @@ class CloakEngine
         surface.close()
         renderTarget.close()
 
-        this.cloak.swapBuffers()
+        this.window.swapBuffers()
 
         // Frame no longer has pending changes, thus is not dirty
         this.isDirty = false
@@ -178,10 +180,10 @@ class CloakEngine
 
         println("[Cloak->Engine]: First draw time took: $firstDrawTime")
 
-        this.cloak.setSwapInterval(2) // Perhaps let the user define this?
-        this.cloak.showWindow() // Perhaps let the user define this?
+        this.glfw.setSwapInterval(1)
+        this.window.isVisible = true
 
-        while (!this.cloak.shouldClose()) {
+        while (!this.window.shouldClose) {
             if (shouldClose) break
             this.startFrame()
         }

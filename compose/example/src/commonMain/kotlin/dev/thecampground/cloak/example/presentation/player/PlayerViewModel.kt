@@ -12,6 +12,7 @@ import dev.thecampground.cloak.engine.ctx
 import dev.thecampground.cloak.engine.engine
 import dev.thecampground.cloak.engine.runOnRenderThread
 import dev.thecampground.cloak.example.intent.PlayerIntent
+import dev.thecampground.cloak.external.glfw.GLFWCallbacks
 import dev.thecampground.cloak.mpv.MPVCompat
 import dev.zt64.mpvkt.Mpv
 import dev.zt64.mpvkt.MpvEvent
@@ -222,8 +223,8 @@ class PlayerViewModel : ViewModel() {
     }
 
     private fun init() = GlobalCloakScope.scope.runOnRenderThread { engine, ctx ->
-        val procAddress = GlobalCloakScope.scope.library.getProcAddress()
-        val context = GlobalCloakScope.scope.library.getCurrentContext() ?: 0
+        val procAddress = GLFWCallbacks.getProcAddressStub.address()
+        val context = GlobalCloakScope.scope.glfw.getCurrentContext() ?: 0
 
         _compat.createRenderContext(context = engine.contextPointer, format = 0x881A)
         _mpv.requestLogMessages(MpvLogLevel.WARN)

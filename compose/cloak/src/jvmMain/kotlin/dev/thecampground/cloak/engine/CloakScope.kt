@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import dev.thecampground.cloak.external.CloakLibrary
 import dev.thecampground.cloak.mpv.MPVCompat
 import org.jetbrains.skia.DirectContext
 
@@ -44,23 +43,25 @@ class CloakScope internal constructor(
     internal val engine: CloakEngine,
     internal val renderQueue: CloakEngine.RenderQueue,
 ) {
-    val library: CloakLibrary.Companion = engine.cloak
-    val clipboard: IClipboard = Clipboard()
+    val glfw = engine.glfw
+    val window = engine.window
+//    val library: CloakLibrary.Companion = engine.cloak
+//    val clipboard: IClipboard = Clipboard()
     val mpvCompat = MPVCompat()
 
     fun quit() = engine.close()
 
-    inner class Clipboard: IClipboard {
-        private val lib = engine.cloak
-
-        override fun setClipboard(bytes: ByteArray, mime: Array<String>) {
-            lib.setClipboard(bytes, mime)
-        }
-
-        override fun setClipboardText(text: String) {
-            lib.setClipboardText(text)
-        }
-    }
+//    inner class Clipboard: IClipboard {
+//        private val lib = engine.cloak
+//
+//        override fun setClipboard(bytes: ByteArray, mime: Array<String>) {
+//            lib.setClipboard(bytes, mime)
+//        }
+//
+//        override fun setClipboardText(text: String) {
+//            lib.setClipboardText(text)
+//        }
+//    }
 
     fun runOnRenderThread(action: RenderSideEffect): RenderSideEffect {
         return renderQueue.post(action)

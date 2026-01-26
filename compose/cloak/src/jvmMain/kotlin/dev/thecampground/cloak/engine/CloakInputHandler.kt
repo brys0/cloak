@@ -16,12 +16,16 @@ import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.ComposeScenePointer
 import androidx.compose.ui.unit.IntSize
 import dev.thecampground.cloak.external.*
+import dev.thecampground.cloak.external.glfw.GLFW
+import dev.thecampground.cloak.external.glfw.GLFWEvent
+import dev.thecampground.cloak.external.glfw.GLFWKeyAction
+import dev.thecampground.cloak.external.glfw.GLFWWindow
 import java.awt.Component
 import java.awt.event.KeyEvent.*
 
 
 internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor(
-    private val cloak: CloakLibrary.Companion,
+    private val window: GLFWWindow,
     private val scene: ComposeScene,
     private val composeSceneContext: ComposeSceneContext,
     private val onResize: (IntSize) -> Unit,
@@ -98,15 +102,21 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
      */
     fun pollInputEvents() {
         while (true) {
-            val event = this.cloak.pollInputEvent() ?: break
+            val event = this.window.callbacks.queue.poll() ?: break
 
-            when (event.type) {
-                CloakInputEventTypes.WINDOW_RESIZE -> onWindowResize(event)
-                CloakInputEventTypes.MOVE -> onMouseMove(event)
-                CloakInputEventTypes.SCROLL -> onMouseScroll(event)
-                CloakInputEventTypes.CLICK -> onMouseClick(event)
-                CloakInputEventTypes.KEY -> onKey(event)
-                CloakInputEventTypes.CHAR -> onCharCallback(event)
+            when (event) {
+                is GLFWEvent.WindowResize -> onWindowResize(event)
+                is GLFWEvent.CursorPosition -> onMouseMove(event)
+                is GLFWEvent.MouseScroll -> onMouseScroll(event)
+                is GLFWEvent.MouseButton -> onMouseClick(event)
+                is GLFWEvent.Key -> onKey(event)
+                is GLFWEvent.Char -> onCharCallback(event)
+
+//                CloakInputEventTypes.MOVE -> onMouseMove(event)
+//                CloakInputEventTypes.SCROLL -> onMouseScroll(event)
+//                CloakInputEventTypes.CLICK -> onMouseClick(event)
+//                CloakInputEventTypes.KEY -> onKey(event)
+//                CloakInputEventTypes.CHAR -> onCharCallback(event)
                 else -> {
                     error("Unexpected event: $event")
                 }
@@ -115,10 +125,10 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
     }
 
     @OptIn(InternalComposeUiApi::class)
-    private fun onWindowResize(event: CloakEvent) {
+    private fun onWindowResize(event: GLFWEvent.WindowResize) {
         val newSize = IntSize(
-            width = event.x.toInt(),
-            height = event.y.toInt()
+            width = event.width,
+            height = event.height
         )
         this.onDirty()
         this.scene.size = newSize
@@ -126,19 +136,21 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
     }
 
     @OptIn(ExperimentalComposeUiApi::class, InternalComposeUiApi::class)
-    private fun onMouseMove(event: CloakEvent) {
-        val position = Offset(event.x, event.y)
-        val type = when (event.subtype) {
-            CloakMoveTypes.MOVE -> PointerEventType.Move
-            CloakMoveTypes.ENTER -> PointerEventType.Enter
-            CloakMoveTypes.EXIT -> PointerEventType.Exit
+    private fun onMouseMove(event: GLFWEvent.CursorPosition) {
+        val position = Offset(event.x.toFloat(), event.y.toFloat())
+
+        val type = when (event) {
+            is GLFWEvent.CursorEnter -> PointerEventType.Enter
+            is GLFWEvent.CursorExit -> PointerEventType.Exit
             else -> PointerEventType.Unknown
         }
-        val mouseEvent = when (event.value) {
-            CloakKeyEvents.RELEASED -> PointerEventType.Release
-            CloakKeyEvents.PRESSED -> PointerEventType.Press
+
+        val mouseEvent = when (event.action) {
+            GLFWKeyAction.PRESS  -> PointerEventType.Press
+            GLFWKeyAction.RELEASE -> PointerEventType.Release
             else -> PointerEventType.Unknown
         }
+
         this.scene.sendPointerEvent(
             eventType = type,
             pointers = listOf(
@@ -155,24 +167,23 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
 
 
     @OptIn(InternalComposeUiApi::class)
-    private fun onMouseScroll(event: CloakEvent) {
+    private fun onMouseScroll(event: GLFWEvent.MouseScroll) {
         this.scene.sendRotaryScrollEvent(
-            verticalScrollPixels = event.scrollY,
-            horizontalScrollPixels = event.scrollX
+            verticalScrollPixels = event.deltaY.toFloat(),
+            horizontalScrollPixels = event.deltaX.toFloat(),
         )
     }
 
     @OptIn(ExperimentalComposeUiApi::class, InternalComposeUiApi::class)
-    private fun onMouseClick(event: CloakEvent) {
+    private fun onMouseClick(event: GLFWEvent.MouseButton) {
         val lastPosition = this.lastMousePosition
-
-        val type = when (event.subtype) {
-            CloakKeyEvents.RELEASED -> PointerEventType.Release
-            CloakKeyEvents.PRESSED -> PointerEventType.Press
+//
+        val type = when (event.action) {
+            GLFWKeyAction.RELEASE -> PointerEventType.Release
+            GLFWKeyAction.PRESS -> PointerEventType.Press
             else -> PointerEventType.Unknown
         }
-
-        val pointerButtonsActive = when (event.value) {
+        val pointerButtonsActive = when (event.button) {
             CloakMouseButtons.LEFT -> PointerButtons(isPrimaryPressed = true)
             CloakMouseButtons.RIGHT -> PointerButtons(isSecondaryPressed = true)
             CloakMouseButtons.MIDDLE -> PointerButtons(isTertiaryPressed = true)
@@ -180,7 +191,7 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
             CloakMouseButtons.FORWARD -> PointerButtons(isForwardPressed = true)
             else -> PointerButtons()
         }
-
+//
         this.scene.sendPointerEvent(
             eventType = type,
             pointers = listOf(
@@ -195,15 +206,15 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
     }
 
     @OptIn(InternalComposeUiApi::class, InternalFoundationApi::class)
-    private fun onKey(event: CloakEvent) {
-        val type = when (event.subtype) {
-            CloakKeyEvents.RELEASED -> KeyEventType.KeyUp
+    private fun onKey(event: GLFWEvent.Key) {
+        val type = when (event.action) {
+            GLFWKeyAction.RELEASE -> KeyEventType.KeyUp
             else -> KeyEventType.KeyDown
         }
 
         if (type == KeyEventType.KeyDown &&
-            event.value == VK_V && // V
-            (event.mod and CloakKeyModifiers.CTRL) != 0) {
+            event.key == VK_V && // V
+            (event.mods and 2) != 0) {
 
             println("Should clipboard paste!")
             handlePaste()
@@ -216,34 +227,32 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
 
     // TODO: Doesn't work yet.
     private fun handlePaste() {
-        val text = "https://blurbusters.com/wp-content/uploads/2019/01/battlefield_1080p_120fps_8mbps.mp4"
+        val text = "http://192.168.1.10:8096/Items/de86012a6a5556e276c4e893f75a18ad/Download?api_key=e314a158bae94ea68a235d203ef55bc8"
         println("[Cloak-Clipboard] Pasting ${text.length} characters")
 
         text.forEach { char ->
-            val charEvent = CloakEvent().apply {
-                this.type = CloakInputEventTypes.CHAR
-                this.subtype = CloakKeyEvents.PRESSED
-                this.value = char.code
-                this.mod = 0
-            }
+            val charEvent = GLFWEvent.Char(
+                char = char.code.toUInt()
+            )
             onCharCallback(charEvent)
         }
     }
 
     @OptIn(InternalComposeUiApi::class)
-    private fun onCharCallback(event: CloakEvent) {
-        val codepoint = event.value.toUInt()
+    private fun onCharCallback(event: GLFWEvent.Char) {
+        println("Char!")
+        val codepoint = event.char
         val awtEvent = java.awt.event.KeyEvent(
             awtDummyComponent,
             KEY_TYPED,
             System.currentTimeMillis(),
-            event.mod,
+            0,
             VK_UNDEFINED,
             codepoint.toInt().toChar(),
             KEY_LOCATION_UNKNOWN
         )
         val composeKeyEvent = KeyEvent(
-            key = Key(nativeKeyCode = event.value),
+            key = Key(nativeKeyCode = event.char.toInt()),
             type = KeyEventType.KeyDown,
             codePoint = codepoint.toInt(),
             isCtrlPressed = false,
@@ -257,19 +266,19 @@ internal class CloakInputHandler @OptIn(InternalComposeUiApi::class) constructor
     }
 
     @OptIn(InternalComposeUiApi::class)
-    private fun mapKeyEvent(event: CloakEvent, type: KeyEventType): KeyEvent {
-        val key = cloakKeyToComposeKey[event.value] ?: Key(nativeKeyCode = event.value)
-        val awtKeyCode = composeKeyToAwt[key] ?: event.value
-        val isShift = (event.mod and CloakKeyModifiers.SHIFT) != 0
-        val isCtrl  = (event.mod and CloakKeyModifiers.CTRL) != 0
-        val isAlt   = (event.mod and CloakKeyModifiers.ALT) != 0
-        val isMeta  = (event.mod and CloakKeyModifiers.META) != 0
+    private fun mapKeyEvent(event: GLFWEvent.Key, type: KeyEventType): KeyEvent {
+        val key = cloakKeyToComposeKey[event.key] ?: Key(nativeKeyCode = event.key)
+        val awtKeyCode = composeKeyToAwt[key] ?: event.key
+        val isShift = (event.mods and CloakKeyModifiers.SHIFT) != 0
+        val isCtrl  = (event.mods and CloakKeyModifiers.CTRL) != 0
+        val isAlt   = (event.mods and CloakKeyModifiers.ALT) != 0
+        val isMeta  = (event.mods and CloakKeyModifiers.META) != 0
 
         val awtEvent = java.awt.event.KeyEvent(
             awtDummyComponent,
             if (type == KeyEventType.KeyDown) KEY_PRESSED else KEY_RELEASED,
             System.currentTimeMillis(),
-            event.mod,
+            event.mods,
             awtKeyCode,
             CHAR_UNDEFINED,
             KEY_LOCATION_STANDARD
