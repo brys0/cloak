@@ -1,5 +1,6 @@
 package dev.thecampground.cloak.external.glfw
 
+import dev.thecampground.cloak.external.ApiLayer
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
 import java.lang.foreign.SymbolLookup
@@ -7,9 +8,9 @@ import java.lang.foreign.ValueLayout
 import java.lang.invoke.MethodHandle
 
 class GLFWApi(
-    val linker: Linker,
-    val symbols: SymbolLookup,
-) {
+    linker: Linker,
+    symbols: SymbolLookup,
+) : ApiLayer(linker, symbols) {
     val initHint = hintFunction("glfwInitHint")
 
     val init = downcallHandle(
@@ -111,24 +112,4 @@ class GLFWApi(
     val setWindowSizeCallback = callbackFunction("glfwSetWindowSizeCallback")
     val setKeyCallback = callbackFunction("glfwSetKeyCallback")
     val setCharCallback = callbackFunction("glfwSetCharCallback")
-
-    private fun downcallHandle(name: String, descriptor: FunctionDescriptor): MethodHandle {
-        return linker.downcallHandle(
-            symbols.find(name).orElseThrow(),
-            descriptor
-        )
-    }
-    private fun hintFunction(name: String): MethodHandle {
-        return this.downcallHandle(
-            name,
-            FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT)
-        )
-    }
-
-    private fun callbackFunction(name: String): MethodHandle {
-        return this.downcallHandle(
-            name,
-            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
-        )
-    }
 }

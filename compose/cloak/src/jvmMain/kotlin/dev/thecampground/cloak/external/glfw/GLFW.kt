@@ -1,5 +1,6 @@
 package dev.thecampground.cloak.external.glfw
 
+import dev.thecampground.cloak.external.opengl.OpenGLApi
 import org.jetbrains.skia.impl.NativePointer
 import java.lang.foreign.Arena
 import java.lang.foreign.Linker
@@ -8,8 +9,10 @@ import java.lang.foreign.SymbolLookup
 
 class GLFW private constructor(
     val api: GLFWApi,
-    val arena: Arena
+    val arena: Arena,
 ) {
+    var gl: OpenGLApi? = null
+
     val getProcAddress: NativePointer = api.getProcAddressPtr.address()
 
     fun createWindow(width: Int, height: Int, title: String, hints: List<GLFWWindow.Companion.Hint> = listOf(), arena: Arena = Arena.ofConfined()): GLFWWindow {
@@ -40,6 +43,9 @@ class GLFW private constructor(
         return (api.getCurrentContext() as MemorySegment).address()
     }
 
+    fun loadGL() {
+        this.gl = OpenGLApi(api.linker, api.symbols, api, arena)
+    }
 
     companion object {
         var glfw: GLFW? = null
@@ -62,7 +68,8 @@ class GLFW private constructor(
                 error("GLFW initialization failed")
             }
 
-            glfw = GLFW(api, arena)
+            glfw = GLFW(api, arena, )
+
 
             return glfw!!
         }
