@@ -13,6 +13,7 @@ class GLFW private constructor(
 ) {
     var gl: OpenGLApi? = null
 
+    @Suppress("unused")
     val getProcAddress: NativePointer = api.getProcAddressPtr.address()
 
     fun createWindow(width: Int, height: Int, title: String, hints: List<GLFWWindow.Companion.Hint> = listOf(), arena: Arena = Arena.ofConfined()): GLFWWindow {
@@ -27,7 +28,7 @@ class GLFW private constructor(
         api.pollEvents()
     }
 
-
+    @Suppress("unused")
     fun getProcAddress(name: String, arena: Arena): MemorySegment{
         val allocatedNameStr = arena.allocateFrom(name)
         val funcPtr = api.getProcAddress(allocatedNameStr) as MemorySegment

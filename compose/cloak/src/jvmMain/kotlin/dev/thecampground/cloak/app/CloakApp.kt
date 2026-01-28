@@ -12,7 +12,6 @@ import dev.thecampground.cloak.engine.CloakScope
 import dev.thecampground.cloak.external.NativeExtractor
 import dev.thecampground.cloak.external.glfw.GLFW
 import dev.thecampground.cloak.external.glfw.GLFWPlatform
-import jdk.internal.vm.vector.VectorSupport.store
 import java.lang.foreign.Arena
 import kotlin.io.path.pathString
 
@@ -28,12 +27,15 @@ class CloakAppOptions(
 class CloakWindowOptions(
     val width: Int = 800,
     val height: Int = 600,
+    @Suppress("unused")
     val title: String = "Cloak App",
+    @Suppress("unused")
     val className: String = "cloak_app",
 )
 class CloakViewModelStoreOwner() : ViewModelStoreOwner {
     override val viewModelStore: ViewModelStore = ViewModelStore()
 
+    @Suppress("unused")
     fun clear() {
         viewModelStore.clear()
     }

@@ -3,11 +3,12 @@ package dev.thecampground.cloak.external
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import kotlin.io.path.pathString
 
 object NativeExtractor {
-    val GLFW3 = "libglfw3.so"
-    val GLAD = "libglad.so"
+    @Suppress("unused")
+    const val GLFW3 = "libglfw3.so"
+    @Suppress("unused")
+    const val GLAD = "libglad.so"
 
     private val extractedDir: Path by lazy {
         Files.createTempDirectory("cloak-native-").also {

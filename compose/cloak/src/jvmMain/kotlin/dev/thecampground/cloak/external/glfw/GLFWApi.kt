@@ -5,7 +5,6 @@ import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
 import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
-import java.lang.invoke.MethodHandle
 
 class GLFWApi(
     linker: Linker,
@@ -104,6 +103,7 @@ class GLFWApi(
         FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT)
     )
 
+    @Suppress("unused")
     val setWindowCloseCallback = callbackFunction("glfwSetWindowCloseCallback")
     val setCursorPositionCallback = callbackFunction("glfwSetCursorPosCallback")
     val setCursorEnterCallback = callbackFunction("glfwSetCursorEnterCallback")

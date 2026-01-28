@@ -34,7 +34,7 @@ class CloakEngine
     constructor(
         val glfw: GLFW,
         val window: GLFWWindow,
-        val contextPointer: NativePointer = glfw.getCurrentContext(),
+        contextPointer: NativePointer = glfw.getCurrentContext(),
         procAddressPointer: NativePointer = GLFWCallbacks.getProcAddressStub.address(),
         dispatcher: CoroutineContext = Dispatchers.Default,
         private val content: @Composable (CloakScope) -> Unit,
@@ -46,6 +46,7 @@ class CloakEngine
     private var isDirty = true
     private var size = window.size
     internal var stats = EngineFrameStats()
+    @Suppress("unused")
     var lastSize = IntSize.Zero
 
     private val scope = CloakScope(engine = this, renderQueue = this.renderQueue)

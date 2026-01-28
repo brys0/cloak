@@ -19,6 +19,7 @@ value class Texture(val value: Int)
 object OpenGlEnum {
     const val GL_TEXTURE_2D = 0x0DE1
     const val GL_FRAMEBUFFER = 0x8D40
+    @Suppress("unused")
     const val GL_RGBA = 0x1908
     const val GL_UNSIGNED_BYTE = 0x1401
 
