@@ -13,12 +13,17 @@ import dev.thecampground.cloak.engine.engine
 import dev.thecampground.cloak.engine.runOnRenderThread
 import dev.thecampground.cloak.example.intent.PlayerIntent
 import dev.thecampground.cloak.external.glfw.GLFWCallbacks
+import dev.thecampground.cloak.external.opengl.FBO
+import dev.thecampground.cloak.external.opengl.OpenGlEnum
+import dev.thecampground.cloak.external.opengl.Texture
 import dev.thecampground.cloak.mpv.MPVCompat
 import dev.zt64.mpvkt.Mpv
 import dev.zt64.mpvkt.MpvEvent
 import dev.zt64.mpvkt.MpvLogLevel
 import dev.zt64.mpvkt.command
+import dev.zt64.mpvkt.getProperty
 import dev.zt64.mpvkt.getPropertyDouble
+import dev.zt64.mpvkt.getPropertyFlag
 import dev.zt64.mpvkt.getPropertyLong
 import dev.zt64.mpvkt.getPropertyString
 import dev.zt64.mpvkt.observeProperty
@@ -58,10 +63,14 @@ data class PlayerState(
 class PlayerViewModel : ViewModel() {
     private val _state = MutableStateFlow(PlayerState())
     private lateinit var _mpv: Mpv
-    private lateinit var _compat: MPVCompat
+//    private lateinit var _compat: MPVCompat
+    private val gl = GlobalCloakScope.scope.glfw.gl!!
     private var _renderContext: MpvRenderContext? = null
     private var _renderFunc: RenderSideEffect? = null
     private var lastSize: IntSize = IntSize.Zero
+
+    private var fbo: FBO? = null
+    private var tex: Texture? = null
 
     var texture: BackendTexture? = null
     var image: Image? = null
@@ -108,6 +117,9 @@ class PlayerViewModel : ViewModel() {
         GlobalCloakScope.scope.runOnRenderThread { engine, context ->
             _mpv.setProperty("pause", false)
             _state.value = _state.value.copy(playing = true)
+            if (_mpv.getPropertyFlag("pause") ?: false) {
+                return@runOnRenderThread true
+            }
 
             false
         }
@@ -174,7 +186,9 @@ class PlayerViewModel : ViewModel() {
                     _state.value = _state.value.copy(needsRedraw = true)
                     if (flags != 0.toULong() || lastSize != _state.value.currentSize || texture == null || image == null) {
                         if (lastSize != currentState.currentSize) {
-                            _compat.resizeMPVTexture(currentState.currentSize.width, currentState.currentSize.height, _compat.renderContext!!.textureFormat)
+                              gl.glBindTexture(tex!!)
+                              gl.glTexImage2D(0, 0x881A, currentState.currentSize.width, currentState.currentSize.height, 0, 0x1908)
+//                            _compat.resizeMPVTexture(currentState.currentSize.width, currentState.currentSize.height, _compat.renderContext!!.textureFormat)
                             lastSize = currentState.currentSize
                         }
                         context.resetGLAll()
@@ -184,9 +198,9 @@ class PlayerViewModel : ViewModel() {
                                 width = lastSize.width,
                                 height = lastSize.height,
                                 isMipmapped = false,
-                                textureId = _compat.renderContext!!.textureID,
+                                textureId = tex!!.value,
                                 textureTarget = 0x0DE1,
-                                textureFormat = _compat.renderContext!!.textureFormat,
+                                textureFormat = 0x881A,
                             )
                             image = Image.adoptTextureFrom(
                                 context,
@@ -201,17 +215,17 @@ class PlayerViewModel : ViewModel() {
                             renderContext.render(
                                 params = listOf(
                                     RenderParam.Companion.OpenGLFBO(
-                                        fbo = _compat.renderContext!!.framebuffer,
+                                        fbo = fbo!!.value,
                                         w = lastSize.width,
                                         h = lastSize.height,
-                                        internalFormat = _compat.renderContext!!.textureFormat,
+                                        internalFormat = tex!!.value,
                                     ),
                                     RenderParam.Companion.FlipY(true)
                                 )
                             )
                         }
 
-                        _compat.flush()
+                        gl.glFlush()
                     }
                 }
             }
@@ -226,7 +240,16 @@ class PlayerViewModel : ViewModel() {
         val procAddress = GLFWCallbacks.getProcAddressStub.address()
         val context = GlobalCloakScope.scope.glfw.getCurrentContext() ?: 0
 
-        _compat.createRenderContext(context = engine.contextPointer, format = 0x881A)
+        fbo = gl.glGenFramebuffers(1)
+        gl.glBindFramebuffer(fbo!!)
+
+        tex = gl.glGenTextures(1)
+        gl.glBindTexture(tex!!)
+        gl.glTexImage2D(0, 0x881A, 512, 512, 0, 0x1908)
+        gl.glTexParameteri(OpenGlEnum.GL_TEXTURE_MIN_FILTER, OpenGlEnum.GL_LINEAR)
+        gl.glTexParameteri(OpenGlEnum.GL_TEXTURE_MAG_FILTER, OpenGlEnum.GL_LINEAR)
+        gl.glFramebufferTexture2D(OpenGlEnum.GL_COLOR_ATTACHMENT0, tex!!, 0)
+
         _mpv.requestLogMessages(MpvLogLevel.WARN)
         _mpv.setOption("hwdec", "auto")
         _mpv.setOption("vo", "libmpv")
@@ -250,10 +273,15 @@ class PlayerViewModel : ViewModel() {
          false
     }
 
+    override fun onCleared() {
+        gl.glDeleteFramebuffers(1, fbo!!)
+        gl.glDeleteTextures(1, tex!!)
+
+        super.onCleared()
+    }
     init {
         GlobalCloakScope.scope.runOnRenderThread { engine, context ->
             _mpv = Mpv()
-            _compat = MPVCompat()
 
             false
         }
