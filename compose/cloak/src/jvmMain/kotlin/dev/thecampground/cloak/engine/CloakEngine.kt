@@ -166,6 +166,7 @@ class CloakEngine
     }
     
     init {
+        glfw.loadGL()
         GlobalCloakScope.init { this.scope }
         RenderQueueDispatcher.init { this to this.scope }
         this.scene.setContent {
