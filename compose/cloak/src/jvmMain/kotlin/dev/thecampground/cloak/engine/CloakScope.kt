@@ -3,17 +3,14 @@ package dev.thecampground.cloak.engine
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import dev.thecampground.cloak.mpv.MPVCompat
 import org.jetbrains.skia.DirectContext
 
 typealias RenderSideEffect = (engine: CloakEngine, context: DirectContext) -> Boolean
@@ -47,7 +44,6 @@ class CloakScope internal constructor(
     val window = engine.window
 //    val library: CloakLibrary.Companion = engine.cloak
 //    val clipboard: IClipboard = Clipboard()
-    val mpvCompat = MPVCompat()
 
     fun quit() = engine.close()
 
