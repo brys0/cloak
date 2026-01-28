@@ -9,10 +9,12 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import dev.thecampground.cloak.engine.CloakEngine
 import dev.thecampground.cloak.engine.CloakScope
+import dev.thecampground.cloak.external.NativeExtractor
 import dev.thecampground.cloak.external.glfw.GLFW
 import dev.thecampground.cloak.external.glfw.GLFWPlatform
 import jdk.internal.vm.vector.VectorSupport.store
 import java.lang.foreign.Arena
+import kotlin.io.path.pathString
 
 
 /**
@@ -40,7 +42,7 @@ class CloakViewModelStoreOwner() : ViewModelStoreOwner {
 @Suppress("unused")
 fun cloakApp(options: CloakAppOptions = CloakAppOptions(), content: @Composable (CloakScope) -> Unit) {
     Arena.ofConfined().use { arena ->
-        val glfw = GLFW.load("/usr/lib/libglfw.so", platform = GLFWPlatform.Wayland(), arena)
+        val glfw = GLFW.load(NativeExtractor.extract(NativeExtractor.GLFW3).pathString, platform = GLFWPlatform.Wayland(), arena)
         val window = glfw.createWindow(
             title = "Cloak App",
             width = options.window.width,
