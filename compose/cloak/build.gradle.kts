@@ -1,6 +1,3 @@
-import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
@@ -37,4 +34,39 @@ kotlin {
     }
 }
 
+val gladDep = "libglad.so"
+val glfw3Dep = "libglfw3.so"
 
+val nativeBuildDir: Directory = layout.projectDirectory.dir("native/buildDir")
+
+val glfw3DepSrc: RegularFile = nativeBuildDir.file("subprojects/glfw-3.4/$glfw3Dep")
+val gladDepSrc: RegularFile = nativeBuildDir.file("subprojects/glad/$gladDep")
+
+val buildNativeLibs by tasks.registering(Exec::class) {
+    workingDir = layout.projectDirectory.dir("native").asFile
+
+    commandLine(
+        "meson", "compile",
+        "-C", nativeBuildDir.asFile.absolutePath
+    )
+
+    outputs.files(glfw3DepSrc, gladDepSrc)
+}
+
+val copyNativeLibs by tasks.registering(Copy::class) {
+    dependsOn(buildNativeLibs)
+
+    from(glfw3DepSrc)
+    from(gladDepSrc)
+
+    into(layout.projectDirectory.dir("src/jvmMain/resources"))
+
+    outputs.files(
+        layout.projectDirectory.file("src/jvmMain/resources/$glfw3Dep"),
+        layout.projectDirectory.file("src/jvmMain/resources/$gladDep")
+    )
+}
+
+tasks.named("build") {
+    dependsOn(copyNativeLibs)
+}
