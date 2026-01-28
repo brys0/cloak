@@ -38,11 +38,9 @@ object RenderQueueDispatcher : CoroutineDispatcher() {
     override fun dispatch(context: CoroutineContext, block: Runnable) {
         val (engine, scope) = provider?.invoke()
             ?: throw IllegalStateException("RenderQueueDispatcher not initialized!")
-
         engine.renderQueue.post { _, _ ->
-            // Wrap the block to automatically inject context elements
             val wrappedContext = context + EngineElement(engine) + CloakScopeElement(scope)
-            block.run() // run the coroutine block
+            block.run()
             true
         }
     }
